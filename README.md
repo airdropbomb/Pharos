@@ -2,6 +2,10 @@
 
 An automated bot for interacting with the Pharos Testnet, performing swaps, transfers, faucet claims, and daily check-ins to potentially qualify for airdrops.
 
+## Register
+
+- Link : https://testnet.pharosnetwork.xyz/experience?inviteCode=DbaODx7XTDpQ5oQ9
+
 ## Features ✨
 
 - **Automated Swaps**: Performs random swaps between WPHRS and USDC tokens
@@ -22,8 +26,7 @@ An automated bot for interacting with the Pharos Testnet, performing swaps, tran
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/vikitoshi/Pharos-Auto-Bot.git
-   cd Pharos-Auto-Bot
+   git clone https://github.com/airdropbomb/Pharos.git && cd Pharos
    ```
 
 2. Install dependencies:
