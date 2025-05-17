@@ -34,10 +34,10 @@ An automated bot for interacting with the Pharos Testnet, performing swaps, tran
    npm install
    ```
 
-3. Create a `.env` file in the root directory with your private keys:
+3. Input a `pk.txt` file in the root directory with your private keys:
    ```
-   PRIVATE_KEY_1=your_first_private_key_here
-   PRIVATE_KEY_2=your_second_private_key_here
+   PK1
+   PK2
    ```
 
 4. (Optional) Add proxies to `proxies.txt` (one per line):
