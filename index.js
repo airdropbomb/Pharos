@@ -1205,7 +1205,7 @@ screen.append(logBox);
 screen.append(menuBox);
 screen.append(faucetSubMenu);
 screen.append(swapSubMenu);
-screen.append(dailyActivitySubMenu keep-alive
+screen.append(dailyActivitySubMenu);
 screen.append(walletListMenu);
 screen.append(amountForm);
 screen.append(repetitionsForm);
