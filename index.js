@@ -484,6 +484,80 @@ async function loginAccount(wallet, proxyUrl, useProxy = true) {
   }
 }
 
+async function performCheckIn(wallet, proxyUrl, accountIndex, useProxy = true) {
+  if (shouldStop) {
+    addLog(`Account ${accountIndex + 1}: Check-in stopped due to stop request.`, "info");
+    return false;
+  }
+  try {
+    addLog(`Account ${accountIndex + 1}: Performing daily check-in for wallet: ${getShortAddress(wallet.address)}`, "info");
+
+    // Step 1: Sign the message
+    const message = "pharos";
+    const signature = await wallet.signMessage(message);
+    addLog(`Account ${accountIndex + 1}: Signed message: ${signature.slice(0, 10)}...`, "info");
+
+    // Step 2: Login request
+    const loginUrl = `${API_BASE_URL}/user/login?address=${wallet.address}&signature=${signature}&invite_code=S6NGMzXSCDBxhnwo`;
+    const loginResponse = await makeApiRequest(
+      "post",
+      loginUrl,
+      {},
+      proxyUrl,
+      {
+        accept: "application/json, text/plain, */*",
+        "accept-language": "en-US,en;q=0.8",
+        authorization: "Bearer null",
+        "sec-ch-ua": '"Chromium";v="136", "Brave";v="136", "Not.A/Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "sec-gpc": "1",
+        Referer: "https://testnet.pharosnetwork.xyz/",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
+      },
+      3,
+      2000,
+      useProxy
+    );
+
+    if (loginResponse.code !== 0 || !loginResponse.data.jwt) {
+      addLog(`Account ${accountIndex + 1}: Login failed: ${loginResponse.msg || 'Unknown error'}`, "error");
+      return false;
+    }
+
+    const jwt = loginResponse.data.jwt;
+    accountJwts[wallet.address] = jwt;
+    addLog(`Account ${accountIndex + 1}: Login successful, JWT obtained.`, "success");
+
+    // Step 3: Check-in request
+    const checkInUrl = `${API_BASE_URL}/sign/in?address=${wallet.address}`;
+    const checkInResponse = await makeApiRequest(
+      "post",
+      checkInUrl,
+      {},
+      proxyUrl,
+      { authorization: `Bearer ${jwt}` },
+      3,
+      2000,
+      useProxy
+    );
+
+    if (checkInResponse.code === 0) {
+      addLog(`Account ${accountIndex + 1}: Check-in successful for ${getShortAddress(wallet.address)}`, "success");
+      return true;
+    } else {
+      addLog(`Account ${accountIndex + 1}: Check-in failed, possibly already checked in: ${checkInResponse.msg || 'Unknown error'}`, "warn");
+      return false;
+    }
+  } catch (error) {
+    addLog(`Account ${accountIndex + 1}: Check-in failed for ${getShortAddress(wallet.address)}: ${error.message}`, "error");
+    return false;
+  }
+}
+
 async function claimFaucetPHRs() {
   if (privateKeys.length === 0) {
     addLog("No valid private keys found.", "error");
@@ -682,6 +756,16 @@ async function runDailyActivity() {
       const wallet = new ethers.Wallet(privateKeys[accountIndex], provider);
       addLog(`Processing account ${accountIndex + 1}: ${getShortAddress(wallet.address)}`, "info");
 
+      // Perform Daily Check-In
+      if (!shouldStop) {
+        try {
+          await performCheckIn(wallet, proxyUrl, accountIndex, true);
+        } catch (error) {
+          addLog(`Account ${accountIndex + 1}: Check-in process failed: ${error.message}`, "error");
+        }
+      }
+
+      // Perform Swaps
       if (!shouldStop) {
         try {
           let successfulSwaps = 0;
@@ -706,7 +790,7 @@ async function runDailyActivity() {
               await updateWallets();
               if (successfulSwaps < dailyActivityConfig.swapRepetitions && !shouldStop) {
                 const randomDelay = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000;
-                addLog(`Account ${accountIndex + 1} - Waiting ${Math.floor(randomDelay / 1000)} seconds before next swap...`, "wait");
+                addLog(`Account ${accountIndex + 1}.'- Waiting ${Math.floor(randomDelay / 1000)} seconds before next swap...`, "wait");
                 await sleep(randomDelay);
               }
             } else {
@@ -724,6 +808,7 @@ async function runDailyActivity() {
         }
       }
 
+      // Perform PHRS Transfers
       if (!shouldStop) {
         try {
           const addresses = loadWalletAddresses();
@@ -763,27 +848,7 @@ async function runDailyActivity() {
         }
       }
 
-      if (!shouldStop) {
-        try {
-          if (!accountJwts[wallet.address]) {
-            await loginAccount(wallet, proxyUrl);
-          }
-          if (accountJwts[wallet.address] && !shouldStop) {
-            const checkinUrl = `${API_BASE_URL}/sign/in?address=${wallet.address}`;
-            const checkinResponse = await makeApiRequest("post", checkinUrl, {}, proxyUrl, {
-              "Authorization": `Bearer ${accountJwts[wallet.address]}`
-            }, 3, 2000, true);
-            if (checkinResponse.code === 0) {
-              addLog(`Account ${accountIndex + 1}: Daily check-in successful.`, "success");
-            } else {
-              addLog(`Account ${accountIndex + 1}: Check-in failed: ${checkinResponse.msg}`, "error");
-            }
-          }
-        } catch (error) {
-          addLog(`Account ${accountIndex + 1}: Check-in error: ${error.message}`, "error");
-        }
-      }
-
+      // Fetch Profile
       if (!shouldStop) {
         try {
           if (!accountJwts[wallet.address]) {
@@ -1140,7 +1205,7 @@ screen.append(logBox);
 screen.append(menuBox);
 screen.append(faucetSubMenu);
 screen.append(swapSubMenu);
-screen.append(dailyActivitySubMenu);
+screen.append(dailyActivitySubMenu keep-alive
 screen.append(walletListMenu);
 screen.append(amountForm);
 screen.append(repetitionsForm);
@@ -1289,30 +1354,30 @@ menuBox.on("select", async item => {
         await runDailyActivity();
       }
       break;
-      case "Stop Activity":
-          shouldStop = true;
-          if (dailyActivityInterval) {
-            clearTimeout(dailyActivityInterval);
-            dailyActivityInterval = null;
-          }
-          addLog("Stopping daily activity... Please wait for ongoing processes to complete.", "info");
-          const stopCheckInterval = setInterval(() => {
-            if (activeProcesses <= 0) { 
-              clearInterval(stopCheckInterval);
-              activityRunning = false;
-              isCycleRunning = false;
-              shouldStop = false;
-              hasLoggedSleepInterrupt = false;
-              activeProcesses = 0; 
-              addLog(`Daily activity stopped successfully.}`, "success");
-              updateMenu();
-              updateStatus();
-              safeRender();
-            } else {
-              addLog(`Waiting for ${activeProcesses} process to complete...`, "info");
-            }
-          }, 1000);
-          break;
+    case "Stop Activity":
+      shouldStop = true;
+      if (dailyActivityInterval) {
+        clearTimeout(dailyActivityInterval);
+        dailyActivityInterval = null;
+      }
+      addLog("Stopping daily activity... Please wait for ongoing processes to complete.", "info");
+      const stopCheckInterval = setInterval(() => {
+        if (activeProcesses <= 0) { 
+          clearInterval(stopCheckInterval);
+          activityRunning = false;
+          isCycleRunning = false;
+          shouldStop = false;
+          hasLoggedSleepInterrupt = false;
+          activeProcesses = 0; 
+          addLog(`Daily activity stopped successfully.`, "success");
+          updateMenu();
+          updateStatus();
+          safeRender();
+        } else {
+          addLog(`Waiting for ${activeProcesses} process to complete...`, "info");
+        }
+      }, 1000);
+      break;
     case "Claim Faucet":
       menuBox.hide();
       faucetSubMenu.show();
