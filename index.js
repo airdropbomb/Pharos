@@ -704,13 +704,13 @@ async function executeSwap(wallet, provider, swapCount, fromToken, toToken, amou
     addLog(`Account ${accountIndex + 1} - Swap ${swapCount}: Executing Swap ${direction}...`, "info");
     const nonce = await getNextNonce(provider, signer.address);
     const feeData = await provider.getFeeData();
-    const gasLimit = 300000;
+    const gasLimit = 200000;
     const tx = await contract.multicall(
       ethers.toBigInt(Math.floor(Date.now() / 1000)),
       multicallData,
       {
         gasLimit,
-        maxFeePerGas: feeData.maxFeePerGas || ethers.parseUnits("5", "gwei"),
+        maxFeePerGas: feeData.maxFeePerGas || ethers.parseUnits("2", "gwei"),
         maxPriorityFeePerGas: feeData.maxPriorityFeePerGas || ethers.parseUnits("1", "gwei"),
         nonce
       }
